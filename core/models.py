@@ -14,6 +14,7 @@ CURRENCY_CHOICES = (
 TRANSACTION_TYPE_CHOICES = (
     ('TRANSFER BANCAR', 'Transfer Bancar'),
     ('NUMERAR', 'Numerar'),
+    ('N/A', 'N/A'),
 )
 
 AMOUNT_TYPE_CHOICES = (
@@ -103,7 +104,9 @@ class Partner(models.Model):
 
 
 class Transaction(models.Model):
+    
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    suspension_of_duplication = models.BooleanField(default=False, null=False, help_text="If True, duplicate transaction checks will be ignored")
     date = models.DateField(null=False, blank=False)
     bank = models.ForeignKey(Bank, on_delete=models.CASCADE, related_name="transactions", null=False, blank=False)
     firm = models.ForeignKey(Firm, on_delete=models.CASCADE, related_name="transactions", null=False, blank=False)

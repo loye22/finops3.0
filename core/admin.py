@@ -33,7 +33,7 @@ class PartnerAdmin(admin.ModelAdmin):
 @admin.register(Transaction)
 class TransactionAdmin(admin.ModelAdmin):
     list_display = ('date', 'firm', 'bank', 'amount_type', 'debit', 'credit', 'currency', 'verified')
-    list_filter = ('date', 'bank', 'firm', 'currency', 'transaction_type', 'amount_type', 'verified')
+    list_filter = ('date', 'bank', 'firm', 'currency', 'transaction_type', 'amount_type', 'verified' , 'suspension_of_duplication')
     search_fields = ('firm__name', 'bank__name', 'partner__name', 'details')
     date_hierarchy = 'date'
     readonly_fields = ('created_at',)
