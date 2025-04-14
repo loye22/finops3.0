@@ -20,26 +20,42 @@ def upload_csv_view(request):
             csv_file = request.FILES['csv_file']
             if not csv_file.name.endswith('.csv'):
                 messages.error(request, 'Please upload a valid CSV file.')
+                logger.error('Invalid file type: not a CSV')
                 return redirect('upload_csv')
 
             # Store the upload record
-            upload = Upload.objects.create(
-                filename=csv_file.name,
-                created_by=request.user.username,
-                json_data={},  # We'll update this if needed
-                sync_status='Pending',
-                status='Uploaded'
-            )
+            try:
+                upload = Upload.objects.create(
+                    filename=csv_file.name,
+                    created_by=request.user.username,
+                    json_data={},
+                    sync_status='Pending',
+                    status='Uploaded'
+                )
+                logger.info(f"Created Upload record: {upload.id}")
+            except Exception as e:
+                messages.error(request, f'Failed to create Upload record: {str(e)}')
+                logger.error(f"Failed to create Upload: {str(e)}")
+                return redirect('upload_csv')
 
             try:
                 # Read and process CSV
                 file_data = csv_file.read().decode('utf-8')
                 csv_reader = csv.DictReader(io.StringIO(file_data))
 
-                # Log headers for debugging
+                # Log headers
                 logger.info(f"CSV Headers: {csv_reader.fieldnames}")
+                required_headers = ['Banca', 'Firma', 'IBAN Firma', 'Partener', 'IBAN Partener', 'Debit', 'Credit', 'Moneda', 'Detalii', 'Tip Suma']
+                missing_headers = [h for h in required_headers if h not in csv_reader.fieldnames]
+                if missing_headers:
+                    messages.error(request, f'Missing CSV headers: {", ".join(missing_headers)}')
+                    logger.error(f'Missing headers: {missing_headers}')
+                    upload.sync_status = 'Failed'
+                    upload.status = 'Failed'
+                    upload.save()
+                    return redirect('upload_csv')
 
-                # Find date column dynamically
+                # Find date column
                 date_column = None
                 possible_date_columns = ['Data', 'Date', 'data', 'date']
                 for col in possible_date_columns:
@@ -49,29 +65,23 @@ def upload_csv_view(request):
 
                 if not date_column:
                     messages.error(request, f'CSV file missing date column. Expected one of: {possible_date_columns}')
-                    logger.error(f'CSV file missing date column. Headers: {csv_reader.fieldnames}')
+                    logger.error(f'Missing date column. Headers: {csv_reader.fieldnames}')
                     upload.sync_status = 'Failed'
                     upload.status = 'Failed'
                     upload.save()
                     return redirect('upload_csv')
 
-                # Get or create required objects
+                # Get or create subcategory
                 try:
-                    bank = Bank.objects.get(name='First Bank')
-                    firm = Firm.objects.get(name='IFIGENIA')
                     others_category, _ = Category.objects.get_or_create(name='Others')
                     na_subcategory, _ = Subcategory.objects.get_or_create(
                         name='N/A',
                         category=others_category
                     )
-                except Bank.DoesNotExist:
-                    messages.error(request, 'Bank "First Bank" not found in database.')
-                    upload.sync_status = 'Failed'
-                    upload.status = 'Failed'
-                    upload.save()
-                    return redirect('upload_csv')
-                except Firm.DoesNotExist:
-                    messages.error(request, 'Firm "IFIGENIA" not found in database.')
+                    logger.info("Found/Created Subcategory: N/A")
+                except Exception as e:
+                    messages.error(request, f'Failed to create Subcategory: {str(e)}')
+                    logger.error(f"Failed to create Subcategory: {str(e)}")
                     upload.sync_status = 'Failed'
                     upload.status = 'Failed'
                     upload.save()
@@ -79,7 +89,7 @@ def upload_csv_view(request):
 
                 row_count = 0
                 success_count = 0
-                duplicates = []  # Track duplicate rows and their matches
+                duplicates = []
 
                 for row in csv_reader:
                     row_count += 1
@@ -88,24 +98,78 @@ def upload_csv_view(request):
                     # Check for missing date
                     date_str = row.get(date_column, '').strip()
                     if not date_str:
-                        logger.warning(f"Skipping row {row_count}: Missing date in column '{date_column}' - Row content: {row}")
+                        logger.warning(f"Skipping row {row_count}: Missing date in column '{date_column}'")
                         messages.warning(request, f"Skipped row {row_count}: Missing date")
+                        continue
+
+                    # Handle Bank
+                    bank_name = row.get('Banca', '').strip()
+                    if not bank_name:
+                        logger.warning(f"Skipping row {row_count}: Missing Banca name")
+                        messages.warning(request, f"Skipped row {row_count}: Missing Banca name")
+                        continue
+
+                    try:
+                        bank, created = Bank.objects.get_or_create(
+                            name=bank_name,
+                            defaults={'code': 'UNKNOWN'}  # Default code if new
+                        )
+                        if created:
+                            logger.info(f"Row {row_count}: Created Bank '{bank_name}' with code 'UNKNOWN'")
+                            messages.info(request, f"Created Bank '{bank_name}'")
+                        else:
+                            logger.info(f"Row {row_count}: Found Bank '{bank_name}'")
+                    except Exception as e:
+                        logger.warning(f"Skipping row {row_count}: Failed to create/get Bank: {str(e)}")
+                        messages.warning(request, f"Skipped row {row_count}: Failed to create/get Bank")
+                        continue
+
+                    # Handle Firm
+                    firm_name = row.get('Firma', '').strip()
+                    firm_iban = row.get('IBAN Firma', '').strip()
+                    if not firm_name:
+                        logger.warning(f"Skipping row {row_count}: Missing Firma name")
+                        messages.warning(request, f"Skipped row {row_count}: Missing Firma name")
+                        continue
+                    if not firm_iban:
+                        firm_iban = 'XXXXXXXXXXXXXXXXX'
+                        logger.info(f"Row {row_count}: Missing IBAN Firma, using default")
+
+                    try:
+                        firm, created = Firm.objects.get_or_create(
+                            name=firm_name,
+                            defaults={'iban': firm_iban}
+                        )
+                        if created:
+                            logger.info(f"Row {row_count}: Created Firm '{firm_name}' with IBAN '{firm_iban}'")
+                            messages.info(request, f"Created Firm '{firm_name}'")
+                        else:
+                            logger.info(f"Row {row_count}: Found Firm '{firm_name}'")
+                    except Exception as e:
+                        logger.warning(f"Skipping row {row_count}: Failed to create/get Firm: {str(e)}")
+                        messages.warning(request, f"Skipped row {row_count}: Failed to create/get Firm")
                         continue
 
                     # Handle Partner
                     partner_name = row.get('Partener', '').strip()
                     partner_iban = row.get('IBAN Partener', 'XXXXXXXXXXXXXXXXX').strip() or 'XXXXXXXXXXXXXXXXX'
-                    if partner_name:
-                        partner, _ = Partner.objects.get_or_create(
-                            name=partner_name,
-                            defaults={'iban': partner_iban}
-                        )
-                    else:
-                        partner, _ = Partner.objects.get_or_create(
-                            name='Unknown Partner',
-                            defaults={'iban': 'XXXXXXXXXXXXXXXXX'}
-                        )
-                        logger.info(f"Row {row_count}: Created default Unknown Partner")
+                    try:
+                        if partner_name:
+                            partner, _ = Partner.objects.get_or_create(
+                                name=partner_name,
+                                defaults={'iban': partner_iban}
+                            )
+                            logger.info(f"Row {row_count}: Found/Created Partner '{partner_name}'")
+                        else:
+                            partner, _ = Partner.objects.get_or_create(
+                                name='Unknown Partner',
+                                defaults={'iban': 'XXXXXXXXXXXXXXXXX'}
+                            )
+                            logger.info(f"Row {row_count}: Used default Unknown Partner")
+                    except Exception as e:
+                        logger.warning(f"Skipping row {row_count}: Failed to create/get Partner: {str(e)}")
+                        messages.warning(request, f"Skipped row {row_count}: Failed to create/get Partner")
+                        continue
 
                     # Parse amount and type
                     debit = row.get('Debit', '0').replace(',', '').replace('"', '').strip()
@@ -113,39 +177,52 @@ def upload_csv_view(request):
                     try:
                         debit = Decimal(debit) if debit else Decimal('0.00')
                         credit = Decimal(credit) if credit else Decimal('0.00')
-                    except (ValueError, TypeError):
-                        logger.warning(f"Skipping row {row_count}: Invalid debit/credit format")
+                        logger.debug(f"Row {row_count}: Parsed debit={debit}, credit={credit}")
+                    except (ValueError, TypeError) as e:
+                        logger.warning(f"Skipping row {row_count}: Invalid debit/credit format: {str(e)}")
                         messages.warning(request, f"Skipped row {row_count}: Invalid debit/credit format")
                         continue
 
                     amount_type = row.get('Tip Suma', 'Debit').strip()
                     if amount_type not in ['Debit', 'Credit']:
-                        logger.warning(f"Row {row_count}: Invalid amount_type, defaulting to Debit")
+                        logger.warning(f"Row {row_count}: Invalid amount_type '{amount_type}', defaulting to Debit")
                         amount_type = 'Debit'
 
                     # Parse date
                     try:
                         date = datetime.strptime(date_str, '%m/%d/%Y').date()
-                    except ValueError:
-                        logger.warning(f"Skipping row {row_count}: Invalid date format: {date_str}")
-                        messages.warning(request, f"Skipped row {row_count}: Invalid date format")
+                        logger.debug(f"Row {row_count}: Parsed date={date}")
+                    except ValueError as e:
+                        logger.warning(f"Skipping row {row_count}: Invalid date format '{date_str}': {str(e)}")
+                        messages.warning(request, f"Skipping row {row_count}: Invalid date format")
                         continue
 
-                    # Check for duplicate transaction
+                    # Check currency
                     currency = row.get('Moneda', 'RON').strip()
-                    matching_transactions = Transaction.objects.filter(
-                        date=date,
-                        firm=firm,
-                        partner=partner,
-                        debit=debit,
-                        credit=credit,
-                        currency=currency
-                    )
-                    is_duplicate = matching_transactions.exists()
-                    match_details = [
-                        f"ID {t.id} (Date: {t.date}, Partner: {t.partner.name if t.partner else 'None'}, Debit: {t.debit}, Credit: {t.credit}, Currency: {t.currency})"
-                        for t in matching_transactions
-                    ]
+                    valid_currencies = ['USD', 'EUR', 'RON']
+                    if currency not in valid_currencies:
+                        logger.warning(f"Row {row_count}: Invalid currency '{currency}', defaulting to RON")
+                        currency = 'RON'
+
+                    # Check for duplicate transaction
+                    try:
+                        matching_transactions = Transaction.objects.filter(
+                            date=date,
+                            firm=firm,
+                            partner=partner,
+                            debit=debit,
+                            credit=credit,
+                            currency=currency
+                        )
+                        is_duplicate = matching_transactions.exists()
+                        match_details = [
+                            f"ID {t.id} (Date: {t.date}, Partner: {t.partner.name if t.partner else 'None'}, Debit: {t.debit}, Credit: {t.credit}, Currency: {t.currency})"
+                            for t in matching_transactions
+                        ]
+                    except Exception as e:
+                        logger.warning(f"Row {row_count}: Failed to check duplicates: {str(e)}")
+                        is_duplicate = False
+                        match_details = []
 
                     if is_duplicate:
                         duplicate_info = {
@@ -167,9 +244,9 @@ def upload_csv_view(request):
                             f"matches transaction(s): {', '.join(match_details)}"
                         )
 
-                    # Create transaction (even if duplicate, with flag set)
+                    # Create transaction
                     try:
-                        Transaction.objects.create(
+                        transaction = Transaction(
                             date=date,
                             bank=bank,
                             firm=firm,
@@ -186,13 +263,16 @@ def upload_csv_view(request):
                             created_by=request.user.username,
                             suspension_of_duplication=is_duplicate
                         )
+                        transaction.full_clean()  # Validate before saving
+                        transaction.save()
                         success_count += 1
                         logger.info(f"Row {row_count}: Transaction created successfully{' (flagged as duplicate)' if is_duplicate else ''}")
                     except Exception as e:
                         logger.error(f"Row {row_count}: Failed to create transaction: {str(e)}")
                         messages.error(request, f"Row {row_count}: Failed to create transaction: {str(e)}")
+                        continue
 
-                # Summarize duplicates in UI and logs
+                # Summarize results
                 if duplicates:
                     duplicate_rows = [str(d['row']) for d in duplicates]
                     messages.info(request, f"Flagged {len(duplicates)} duplicate rows: {', '.join(duplicate_rows)}")
@@ -204,7 +284,13 @@ def upload_csv_view(request):
                 upload.sync_status = 'Synced' if success_count > 0 else 'Failed'
                 upload.status = 'Processed' if success_count > 0 else 'Failed'
                 upload.save()
-                messages.success(request, f'Imported {success_count} of {row_count} transactions successfully!')
+                if success_count == 0:
+                    messages.error(request, f"No transactions were imported. Check logs for details.")
+                    logger.error(f"No transactions imported. Processed {row_count} rows.")
+                else:
+                    messages.success(request, f"Imported {success_count} of {row_count} transactions successfully!")
+                    logger.info(f"Imported {success_count} of {row_count} transactions")
+
                 return redirect('upload_csv')
 
             except Exception as e:
@@ -212,7 +298,7 @@ def upload_csv_view(request):
                 upload.sync_status = 'Failed'
                 upload.status = 'Failed'
                 upload.save()
-                messages.error(request, f'Error processing CSV: {str(e)}')
+                messages.error(request, f"Error processing CSV: {str(e)}")
                 return redirect('upload_csv')
 
     else:
