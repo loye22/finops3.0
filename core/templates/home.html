@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Transaction Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tippy.js@6.3.7/dist/tippy-bundle.umd.min.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .sidebar {
+            transition: all 0.3s ease;
+        }
+        .sidebar-item:hover {
+            background-color: #f3f4f6;
+            transform: translateX(5px);
+        }
+        .table-row {
+            transition: background-color 0.2s;
+        }
+        .table-row:hover {
+            background-color: #f1f5f9;
+        }
+        .filter-dropdown {
+            position: relative;
+        }
+        .filter-button {
+            transition: all 0.3s ease;
+            border-radius: 8px;
+        }
+        .filter-button:hover {
+            background-color: #e5e7eb;
+            transform: scale(1.05);
+        }
+        .dropdown-menu {
+            max-height: 250px;
+            overflow-y: auto;
+            z-index: 50;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        .dropdown-item:hover {
+            background-color: #f1f5f9;
+        }
+        .badge {
+            transition: all 0.2s ease;
+        }
+        .badge:hover {
+            transform: scale(1.1);
+        }
+        .container {
+            animation: fadeIn 0.5s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="flex h-screen">
+        <!-- Sidebar -->
+        <div class="sidebar w-72 bg-white shadow-xl rounded-r-2xl">
+            <div class="p-6 border-b border-gray-100">
+                <h2 class="text-2xl font-bold text-gray-900">Firms</h2>
+            </div>
+            <ul class="py-4">
+                <li class="sidebar-item px-2">
+                    <a href="?firm=all" class="flex items-center justify-between px-4 py-3 text-gray-700 rounded-lg mx-2 {% if selected_firm == 'all' %}bg-indigo-100 font-semibold{% endif %}">
+                        <span class="text-base">All</span>
+                        <span class="badge inline-flex items-center px-2.5 py-1 text-xs font-semibold text-white bg-red-500 rounded-full">
+                            {{ total_uncategorized }}
+                        </span>
+                    </a>
+                </li>
+                {% for firm in firms %}
+                <li class="sidebar-item px-2">
+                    <a href="?firm={{ firm.id }}" class="flex items-center justify-between px-4 py-3 text-gray-700 rounded-lg mx-2 {% if selected_firm == firm.id %}bg-indigo-100 font-semibold{% endif %}">
+                        <span class="text-base">{{ firm.name }}</span>
+                        <span class="badge inline-flex items-center px-2.5 py-1 text-xs font-semibold text-white bg-red-500 rounded-full">
+                            {{ firm.uncategorized_count }}
+                        </span>
+                    </a>
+                </li>
+                {% empty %}
+                <li class="px-6 py-3 text-gray-500 text-sm">No firms found.</li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        <!-- Main Content -->
+        <div class="flex-1 p-8 overflow-auto container">
+            <!-- Top Stats -->
+            <div class="mb-8 flex space-x-6">
+                <div class="bg-white p-6 rounded-xl shadow-md flex-1 hover:shadow-lg transition-shadow">
+                    <h3 class="text-sm font-medium text-gray-600">Uncategorized Transactions</h3>
+                    <p class="text-3xl font-bold text-red-600 mt-2">{{ total_uncategorized }}</p>
+                </div>
+                <div class="bg-white p-6 rounded-xl shadow-md flex-1 hover:shadow-lg transition-shadow">
+                    <h3 class="text-sm font-medium text-gray-600">Potential Duplicates</h3>
+                    <p class="text-3xl font-bold text-yellow-600 mt-2">{{ total_duplicates }}</p>
+                </div>
+            </div>
+
+            <!-- Transaction Table -->
+            <div class="bg-white rounded-xl shadow-md overflow-hidden">
+                <table class="min-w-full">
+                    <thead class="bg-gray-100">
+                        <tr>
+                            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                <div class="filter-dropdown">
+                                    <button class="filter-button px-3 py-1.5 text-sm" data-tippy-content="Filter Date">Date</button>
+                                    <div class="dropdown-menu hidden absolute bg-white border border-gray-200 mt-2 w-56">
+                                        <div class="p-3 border-b">
+                                            <input type="checkbox" id="select-all-date" class="mr-2 text-indigo-600">
+                                            <label for="select-all-date" class="text-sm font-medium">Select All</label>
+                                        </div>
+                                        {% for date in unique_dates %}
+                                        <div class="dropdown-item p-3">
+                                            <input type="checkbox" class="filter-date mr-2 text-indigo-600" value="{{ date }}" checked>
+                                            <label class="text-sm">{{ date }}</label>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </th>
+                            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                <div class="filter-dropdown">
+                                    <button class="filter-button px-3 py-1.5 text-sm" data-tippy-content="Filter Bank">Bank</button>
+                                    <div class="dropdown-menu hidden absolute bg-white border border-gray-200 mt-2 w-56">
+                                        <div class="p-3 border-b">
+                                            <input type="checkbox" id="select-all-bank" class="mr-2 text-indigo-600">
+                                            <label for="select-all-bank" class="text-sm font-medium">Select All</label>
+                                        </div>
+                                        {% for bank in unique_banks %}
+                                        <div class="dropdown-item p-3">
+                                            <input type="checkbox" class="filter-bank mr-2 text-indigo-600" value="{{ bank }}" checked>
+                                            <label class="text-sm">{{ bank }}</label>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </th>
+                            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                <div class="filter-dropdown">
+                                    <button class="filter-button px-3 py-1.5 text-sm" data-tippy-content="Filter Firm">Firm</button>
+                                    <div class="dropdown-menu hidden absolute bg-white border border-gray-200 mt-2 w-56">
+                                        <div class="p-3 border-b">
+                                            <input type="checkbox" id="select-all-firm" class="mr-2 text-indigo-600">
+                                            <label for="select-all-firm" class="text-sm font-medium">Select All</label>
+                                        </div>
+                                        {% for firm in unique_firms %}
+                                        <div class="dropdown-item p-3">
+                                            <input type="checkbox" class="filter-firm mr-2 text-indigo-600" value="{{ firm }}" checked>
+                                            <label class="text-sm">{{ firm }}</label>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </th>
+                            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                <div class="filter-dropdown">
+                                    <button class="filter-button px-3 py-1.5 text-sm" data-tippy-content="Filter Partner">Partner</button>
+                                    <div class="dropdown-menu hidden absolute bg-white border border-gray-200 mt-2 w-56">
+                                        <div class="p-3 border-b">
+                                            <input type="checkbox" id="select-all-partner" class="mr-2 text-indigo-600">
+                                            <label for="select-all-partner" class="text-sm font-medium">Select All</label>
+                                        </div>
+                                        {% for partner in unique_partners %}
+                                        <div class="dropdown-item p-3">
+                                            <input type="checkbox" class="filter-partner mr-2 text-indigo-600" value="{{ partner|default:'N/A' }}" checked>
+                                            <label class="text-sm">{{ partner|default:'N/A' }}</label>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </th>
+                            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                <div class="filter-dropdown">
+                                    <button class="filter-button px-3 py-1.5 text-sm" data-tippy-content="Filter Debit">Debit</button>
+                                    <div class="dropdown-menu hidden absolute bg-white border border-gray-200 mt-2 w-56">
+                                        <div class="p-3 border-b">
+                                            <input type="checkbox" id="select-all-debit" class="mr-2 text-indigo-600">
+                                            <label for="select-all-debit" class="text-sm font-medium">Select All</label>
+                                        </div>
+                                        {% for debit in unique_debits %}
+                                        <div class="dropdown-item p-3">
+                                            <input type="checkbox" class="filter-debit mr-2 text-indigo-600" value="{{ debit }}" checked>
+                                            <label class="text-sm">{{ debit }}</label>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </th>
+                            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                <div class="filter-dropdown">
+                                    <button class="filter-button px-3 py-1.5 text-sm" data-tippy-content="Filter Credit">Credit</button>
+                                    <div class="dropdown-menu hidden absolute bg-white border border-gray-200 mt-2 w-56">
+                                        <div class="p-3 border-b">
+                                            <input type="checkbox" id="select-all-credit" class="mr-2 text-indigo-600">
+                                            <label for="select-all-credit" class="text-sm font-medium">Select All</label>
+                                        </div>
+                                        {% for credit in unique_credits %}
+                                        <div class="dropdown-item p-3">
+                                            <input type="checkbox" class="filter-credit mr-2 text-indigo-600" value="{{ credit }}" checked>
+                                            <label class="text-sm">{{ credit }}</label>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </th>
+                            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                <div class="filter-dropdown">
+                                    <button class="filter-button px-3 py-1.5 text-sm" data-tippy-content="Filter Currency">Currency</button>
+                                    <div class="dropdown-menu hidden absolute bg-white border border-gray-200 mt-2 w-56">
+                                        <div class="p-3 border-b">
+                                            <input type="checkbox" id="select-all-currency" class="mr-2 text-indigo-600">
+                                            <label for="select-all-currency" class="text-sm font-medium">Select All</label>
+                                        </div>
+                                        {% for currency in unique_currencies %}
+                                        <div class="dropdown-item p-3">
+                                            <input type="checkbox" class="filter-currency mr-2 text-indigo-600" value="{{ currency }}" checked>
+                                            <label class="text-sm">{{ currency }}</label>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </th>
+                            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">Details</th>
+                            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                <div class="filter-dropdown">
+                                    <button class="filter-button px-3 py-1.5 text-sm" data-tippy-content="Filter Subcategory">Subcategory</button>
+                                    <div class="dropdown-menu hidden absolute bg-white border border-gray-200 mt-2 w-56">
+                                        <div class="p-3 border-b">
+                                            <input type="checkbox" id="select-all-subcategory" class="mr-2 text-indigo-600">
+                                            <label for="select-all-subcategory" class="text-sm font-medium">Select All</label>
+                                        </div>
+                                        {% for subcategory in unique_subcategories %}
+                                        <div class="dropdown-item p-3">
+                                            <input type="checkbox" class="filter-subcategory mr-2 text-indigo-600" value="{{ subcategory }}" checked>
+                                            <label class="text-sm">{{ subcategory }}</label>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </th>
+                            <th class="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">
+                                <div class="filter-dropdown">
+                                    <button class="filter-button px-3 py-1.5 text-sm" data-tippy-content="Filter Duplicate">Duplicate</button>
+                                    <div class="dropdown-menu hidden absolute bg-white border border-gray-200 mt-2 w-56">
+                                        <div class="p-3 border-b">
+                                            <input type="checkbox" id="select-all-duplicate" class="mr-2 text-indigo-600">
+                                            <label for="select-all-duplicate" class="text-sm font-medium">Select All</label>
+                                        </div>
+                                        <div class="dropdown-item p-3">
+                                            <input type="checkbox" class="filter-duplicate mr-2 text-indigo-600" value="Yes" checked>
+                                            <label class="text-sm">Yes</label>
+                                        </div>
+                                        <div class="dropdown-item p-3">
+                                            <input type="checkbox" class="filter-duplicate mr-2 text-indigo-600" value="No" checked>
+                                            <label class="text-sm">No</label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody id="transaction-table" class="divide-y divide-gray-100">
+                        {% for transaction in transactions %}
+                        <tr class="table-row">
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800">{{ transaction.date }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800">{{ transaction.bank.name }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800">{{ transaction.firm.name }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800">{{ transaction.partner.name|default:"N/A" }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800">{{ transaction.debit }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800">{{ transaction.credit }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800">{{ transaction.currency }}</td>
+                            <td class="px-6 py-4 text-sm text-gray-800">{{ transaction.details|truncatechars:50 }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800">{{ transaction.subcategory.name }}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                {% if transaction.suspension_of_duplication %}
+                                    <span class="text-yellow-600 font-semibold">Yes</span>
+                                {% else %}
+                                    <span class="text-gray-600">No</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="10" class="px-6 py-4 text-center text-sm text-gray-500">No transactions found.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Tippy.js for dropdowns
+        tippy('.filter-button', {
+            content(reference) {
+                return reference.getAttribute('data-tippy-content');
+            },
+            trigger: 'click',
+            interactive: true,
+            allowHTML: true,
+            placement: 'bottom-start',
+            onShow(instance) {
+                const dropdown = instance.reference.nextElementSibling;
+                dropdown.classList.remove('hidden');
+                instance.setContent(dropdown);
+            },
+            onHide(instance) {
+                const dropdown = instance.reference.nextElementSibling;
+                dropdown.classList.add('hidden');
+            },
+        });
+
+        // Select All functionality
+        document.querySelectorAll('[id^="select-all-"]').forEach(selectAll => {
+            selectAll.addEventListener('change', (e) => {
+                const prefix = e.target.id.replace('select-all-', '');
+                const checkboxes = document.querySelectorAll(`.filter-${prefix}`);
+                checkboxes.forEach(cb => cb.checked = e.target.checked);
+                filterTable();
+            });
+        });
+
+        // Filter checkboxes
+        document.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+            if (!checkbox.id.startsWith('select-all-')) {
+                checkbox.addEventListener('change', filterTable);
+            }
+        });
+
+        function filterTable() {
+            const rows = document.querySelectorAll('#transaction-table tr');
+            const dateFilters = Array.from(document.querySelectorAll('.filter-date:checked')).map(cb => cb.value);
+            const bankFilters = Array.from(document.querySelectorAll('.filter-bank:checked')).map(cb => cb.value);
+            const firmFilters = Array.from(document.querySelectorAll('.filter-firm:checked')).map(cb => cb.value);
+            const partnerFilters = Array.from(document.querySelectorAll('.filter-partner:checked')).map(cb => cb.value);
+            const debitFilters = Array.from(document.querySelectorAll('.filter-debit:checked')).map(cb => cb.value);
+            const creditFilters = Array.from(document.querySelectorAll('.filter-credit:checked')).map(cb => cb.value);
+            const currencyFilters = Array.from(document.querySelectorAll('.filter-currency:checked')).map(cb => cb.value);
+            const subcategoryFilters = Array.from(document.querySelectorAll('.filter-subcategory:checked')).map(cb => cb.value);
+            const duplicateFilters = Array.from(document.querySelectorAll('.filter-duplicate:checked')).map(cb => cb.value);
+
+            rows.forEach(row => {
+                const cells = row.getElementsByTagName('td');
+                if (cells.length === 0) return; // Skip header rows
+
+                const date = cells[0].textContent;
+                const bank = cells[1].textContent;
+                const firm = cells[2].textContent;
+                const partner = cells[3].textContent;
+                const debit = cells[4].textContent;
+                const credit = cells[5].textContent;
+                const currency = cells[6].textContent;
+                const subcategory = cells[8].textContent;
+                const duplicate = cells[9].textContent === 'Yes' ? 'Yes' : 'No';
+
+                const matchesDate = dateFilters.length === 0 || dateFilters.includes(date);
+                const matchesBank = bankFilters.length === 0 || bankFilters.includes(bank);
+                const matchesFirm = firmFilters.length === 0 || firmFilters.includes(firm);
+                const matchesPartner = partnerFilters.length === 0 || partnerFilters.includes(partner);
+                const matchesDebit = debitFilters.length === 0 || debitFilters.includes(debit);
+                const matchesCredit = creditFilters.length === 0 || creditFilters.includes(credit);
+                const matchesCurrency = currencyFilters.length === 0 || currencyFilters.includes(currency);
+                const matchesSubcategory = subcategoryFilters.length === 0 || subcategoryFilters.includes(subcategory);
+                const matchesDuplicate = duplicateFilters.length === 0 || duplicateFilters.includes(duplicate);
+
+                row.style.display = (
+                    matchesDate &&
+                    matchesBank &&
+                    matchesFirm &&
+                    matchesPartner &&
+                    matchesDebit &&
+                    matchesCredit &&
+                    matchesCurrency &&
+                    matchesSubcategory &&
+                    matchesDuplicate
+                ) ? '' : 'none';
+            });
+        }
+    </script>
+</body>
+</html>

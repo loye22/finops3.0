@@ -21,5 +21,5 @@ from core import views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('upload/', views.upload_csv_view, name='upload_csv'),
+    path('home/', views.transaction_dashboard, name='transaction_dashboard'),
 ]
