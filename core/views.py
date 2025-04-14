@@ -30,7 +30,7 @@ def transaction_dashboard(request):
         transactions = transactions.filter(firm__id=selected_firm_id)
 
     # Calculate total uncategorized transactions
-    total_uncategorized = transactions.filter(subcategory__name='Uncategorized').count()
+    total_uncategorized = transactions.filter(subcategory__name='N/A').count()
 
     # Calculate potential duplicates
     total_duplicates = transactions.filter(suspension_of_duplication=True).count()
@@ -38,7 +38,7 @@ def transaction_dashboard(request):
     # Add uncategorized count to each firm
     for firm in firms:
         firm.uncategorized_count = Transaction.objects.filter(
-            firm=firm, subcategory__name='Uncategorized'
+            firm=firm, subcategory__name='N/A'
         ).count()
 
     # Unique values for filters
