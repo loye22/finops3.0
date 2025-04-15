@@ -5,65 +5,71 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Transaction Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/tippy.js@6.3.7/dist/tippy-bundle.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/tippy.js@6.3.7/dist/tippy-bundle.umd.min.js" defer></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
     <style>
         body {
             font-family: 'Inter', sans-serif;
+            background-color: #F5F7FA;
         }
         .sidebar {
-            transition: all 0.3s ease;
-            width: 280px;
-            transform: translateX(-100%);
+            width: 60px;
             position: fixed;
             top: 0;
             left: 0;
             height: 100%;
             z-index: 1000;
+            background-color: #fff;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.05);
         }
-        .sidebar.open {
-            transform: translateX(0);
+        .sidebar:hover {
+            background-color: #F9FAFB;
+        }
+        .sidebar.expanded {
+            width: 260px;
         }
         .content {
-            transition: margin-left 0.3s ease;
-            margin-left: 0;
+            margin-left: 60px;
+            width: calc(100% - 60px);
+            padding: 2rem;
         }
-        .content.sidebar-open {
-            margin-left: 280px;
+        .content.sidebar-expanded {
+            margin-left: 260px;
+            width: calc(100% - 260px);
         }
         .sidebar-item {
             position: relative;
         }
         .sidebar-item:hover {
-            background-color: #f3f4f6;
-            transform: translateX(5px);
+            background-color: #F5F7FA;
+        }
+        .sidebar-item.active {
+            background-color: #3B82F6;
+            color: white;
+        }
+        .sidebar-item.active i {
+            color: white;
         }
         .sub-menu {
-            transition: max-height 0.3s ease;
-            max-height: 0;
-            overflow: hidden;
-            background-color: #f9fafb;
+            background-color: #F9FAFB;
+            display: none; /* Collapsed by default */
         }
-        .sub-menu.open {
-            max-height: 200px;
-        }
-        .table-row {
-            transition: background-color 0.2s;
+        .sub-menu.expanded {
+            display: block;
         }
         .table-row:hover {
             background-color: #f1f5f9;
+            cursor: pointer;
         }
         .filter-dropdown {
             position: relative;
         }
         .filter-button {
-            transition: all 0.3s ease;
             border-radius: 8px;
         }
         .filter-button:hover {
             background-color: #e5e7eb;
-            transform: scale(1.05);
         }
         .dropdown-menu {
             max-height: 250px;
@@ -75,7 +81,6 @@
         }
         .dropdown-item {
             color: #1f2937;
-            transition: background-color 0.2s;
         }
         .dropdown-item:hover {
             background-color: #f1f5f9;
@@ -84,24 +89,131 @@
             color: #1f2937;
         }
         .badge {
-            transition: all 0.2s ease;
+            font-size: 0.75rem;
         }
-        .badge:hover {
-            transform: scale(1.1);
+        .badge.green {
+            background-color: #10B981;
         }
-        .container {
-            animation: fadeIn 0.5s ease-in;
+        .uncategorized-widget {
+            position: relative;
+            background-color: white;
+            cursor: pointer;
         }
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
+        .uncategorized-content {
+            display: block;
         }
-        .load-more-btn {
-            transition: all 0.3s ease;
+        .solve-now-btn {
+            display: none;
+            background-color: #34D399;
+            color: white;
+            font-size: 1.25rem;
+            font-weight: 600;
+            height: 100%;
+            width: 100%;
+            text-align: center;
+            line-height: 5rem;
+            border-radius: 0.75rem;
         }
-        .load-more-btn:hover {
-            background-color: #4f46e5;
-            transform: translateY(-2px);
+        .uncategorized-widget:hover .uncategorized-content {
+            display: none;
+        }
+        .uncategorized-widget:hover .solve-now-btn {
+            display: block;
+        }
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+        .pagination a, .pagination span {
+            padding: 0.5rem 1rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            color: #374151;
+            text-decoration: none;
+        }
+        .pagination a:hover {
+            background-color: #e5e7eb;
+        }
+        .pagination .current {
+            background-color: #3B82F6;
+            color: white;
+            border-color: #3B82F6;
+        }
+        .pagination .jump-to-page {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        .pagination input {
+            width: 60px;
+            padding: 0.5rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            text-align: center;
+        }
+        .pagination button {
+            padding: 0.5rem 1rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            background-color: #3B82F6;
+            color: white;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 12px;
+            width: 500px;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        }
+        .modal-content h2 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 1.5rem;
+            border-bottom: 1px solid #e5e7eb;
+            padding-bottom: 0.5rem;
+        }
+        .modal-content .detail-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        .modal-content .detail-row:last-child {
+            border-bottom: none;
+        }
+        .modal-content .detail-label {
+            font-weight: 500;
+            color: #6b7280;
+        }
+        .modal-content .detail-value {
+            color: #1f2937;
+        }
+        .modal-content .close-btn {
+            background-color: #3B82F6;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            margin-top: 1.5rem;
+            text-align: center;
+            cursor: pointer;
         }
         .sidebar-item > div::after {
             content: '\f054';
@@ -110,74 +222,122 @@
             position: absolute;
             right: 1rem;
             color: #6b7280;
-            transition: transform 0.3s ease;
         }
-        .sidebar-item.open > div::after {
-            transform: rotate(90deg);
+        .sidebar-item.collapsed > div::after {
+            content: '\f078';
+        }
+        .sidebar-item.active > div::after {
+            color: white;
+        }
+        .sidebar-text {
+            display: none;
+        }
+        .sidebar.expanded .sidebar-text {
+            display: inline;
+        }
+        .sidebar-logo-text {
+            display: none;
+        }
+        .sidebar.expanded .sidebar-logo-text {
+            display: inline;
+        }
+        .sleek-container {
+            background-color: #1F2937;
+            color: white;
+            padding: 0.75rem 1rem;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            cursor: pointer;
+        }
+        .sleek-container:hover {
+            background-color: #111827;
+        }
+        .sidebar.collapsed .badge,
+        .sidebar.collapsed .sidebar-item > div::after {
+            display: none;
+        }
+
+        .sidebar-logo-collapsed {
+            display: none;
+           
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 10%;
+        }
+        .sidebar-item.collapsed .badge {
+            display: none;
         }
     </style>
 </head>
 <body class="bg-gray-50">
     <div class="flex h-screen">
-        <!-- Sidebar Toggle Button -->
-        <button id="toggle-sidebar" class="fixed top-4 left-4 z-50 p-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
-            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
-            </svg>
-        </button>
-
         <!-- Sidebar -->
-        <div class="sidebar bg-white shadow-xl rounded-r-2xl h-full">
+        <div class="sidebar bg-white h-full">
             <div class="p-6 border-b border-gray-100">
-                <h2 class="text-2xl font-bold text-gray-900">Firms</h2>
+                <h2 id="toggle-sidebar" class="sleek-container">
+                    <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path>
+                    </svg>
+                    <span class="sidebar-logo-text">FINOPS</span>
+                </h2>
             </div>
             <ul class="py-4">
-                <li class="sidebar-item px-2">
-                    <div class="flex items-center px-4 py-3 text-gray-700 rounded-lg mx-2 cursor-pointer {% if selected_firm == 'all' %}bg-indigo-100 font-semibold{% endif %}" data-firm="all">
-                        <i class="fas fa-globe w-5 h-5 mr-3 text-gray-600"></i>
-                        <span class="text-base">All</span>
-                        <span class="badge inline-flex items-center px-2.5 py-1 text-xs font-semibold text-white bg-red-500 rounded-full ml-auto">
+                <li class="px-6 py-2 text-sm font-semibold text-gray-500 uppercase sidebar-text">Home</li>
+                <li class="sidebar-item">
+                    <div class="flex items-center px-4 py-3 text-gray-700 rounded-lg mx-2 cursor-pointer {% if selected_firm == 'all' %}active{% endif %}" data-firm="all" data-tippy-content="Dashboard">
+                        <i class="fas fa-tachometer-alt w-5 h-5 mr-3 text-gray-600"></i>
+                        <span class="text-base sidebar-text">Dashboard</span>
+                        <span class="badge inline-flex items-center px-2.5 py-1 text-xs font-semibold text-white bg-red-500 rounded-full ml-auto sidebar-text">
                             {{ total_uncategorized }}
                         </span>
                     </div>
                     <ul class="sub-menu pl-6">
-                        <li><a href="/transactions/add" class="block py-2 text-sm text-gray-600 hover:text-indigo-600"><i class="fas fa-plus w-5 h-5 mr-2"></i>Add Transaction</a></li>
-                        <li><a href="/transactions/view" class="block py-2 text-sm text-gray-600 hover:text-indigo-600"><i class="fas fa-eye w-5 h-5 mr-2"></i>See Transactions</a></li>
-                        <li><a href="/reports" class="block py-2 text-sm text-gray-600 hover:text-indigo-600"><i class="fas fa-chart-bar w-5 h-5 mr-2"></i>Reports</a></li>
-                        <li><a href="/calculations" class="block py-2 text-sm text-gray-600 hover:text-indigo-600"><i class="fas fa-calculator w-5 h-5 mr-2"></i>Calculations</a></li>
+                        <li><a href="/dashboard" class="block py-2 text-sm text-gray-600 hover:text-indigo-600"><i class="fas fa-tachometer-alt w-5 h-5 mr-2"></i><span class="sidebar-text">Dashboard</span></a></li>
+                        <li><a href="/transactions/add" class="block py-2 text-sm text-gray-600 hover:text-indigo-600"><i class="fas fa-plus w-5 h-5 mr-2"></i><span class="sidebar-text">Add Transaction</span></a></li>
+                        <li><a href="/transactions/view" class="block py-2 text-sm text-gray-600 hover:text-indigo-600"><i class="fas fa-eye w-5 h-5 mr-2"></i><span class="sidebar-text">See Transactions</span></a></li>
+                        <li><a href="/reports" class="block py-2 text-sm text-gray-600 hover:text-indigo-600"><i class="fas fa-chart-bar w-5 h-5 mr-2"></i><span class="sidebar-text">Reports</span></a></li>
+                        <li><a href="/calculations" class="block py-2 text-sm text-gray-600 hover:text-indigo-600"><i class="fas fa-calculator w-5 h-5 mr-2"></i><span class="sidebar-text">Calculations</span></a></li>
                     </ul>
                 </li>
                 {% for firm in firms %}
-                <li class="sidebar-item px-2">
-                    <div class="flex items-center px-4 py-3 text-gray-700 rounded-lg mx-2 cursor-pointer {% if selected_firm == firm.id %}bg-indigo-100 font-semibold{% endif %}" data-firm="{{ firm.id }}">
+                <li class="sidebar-item">
+                    <div class="flex items-center px-4 py-3 text-gray-700 rounded-lg mx-2 cursor-pointer {% if selected_firm == firm.id|stringformat:'s' %}active{% endif %}" data-firm="{{ firm.id }}" data-tippy-content="{{ firm.name }}">
                         <i class="fas fa-building w-5 h-5 mr-3 text-gray-600"></i>
-                        <span class="text-base">{{ firm.name }}</span>
-                        <span class="badge inline-flex items-center px-2.5 py-1 text-xs font-semibold text-white bg-red-500 rounded-full ml-auto">
+                        <span class="text-base sidebar-text">{{ firm.name }}</span>
+                        <span class="badge inline-flex items-center px-2.5 py-1 text-xs font-semibold text-white bg-red-500 rounded-full ml-auto sidebar-text">
                             {{ firm.uncategorized_count }}
                         </span>
                     </div>
                     <ul class="sub-menu pl-6">
-                        <li><a href="/transactions/add" class="block py-2 text-sm text-gray-600 hover:text-indigo-600"><i class="fas fa-plus w-5 h-5 mr-2"></i>Add Transaction</a></li>
-                        <li><a href="/transactions/view" class="block py-2 text-sm text-gray-600 hover:text-indigo-600"><i class="fas fa-eye w-5 h-5 mr-2"></i>See Transactions</a></li>
-                        <li><a href="/reports" class="block py-2 text-sm text-gray-600 hover:text-indigo-600"><i class="fas fa-chart-bar w-5 h-5 mr-2"></i>Reports</a></li>
-                        <li><a href="/calculations" class="block py-2 text-sm text-gray-600 hover:text-indigo-600"><i class="fas fa-calculator w-5 h-5 mr-2"></i>Calculations</a></li>
+                        <li><a href="/dashboard" class="block py-2 text-sm text-gray-600 hover:text-indigo-600"><i class="fas fa-tachometer-alt w-5 h-5 mr-2"></i><span class="sidebar-text">Dashboard</span></a></li>
+                        <li><a href="/transactions/add" class="block py-2 text-sm text-gray-600 hover:text-indigo-600"><i class="fas fa-plus w-5 h-5 mr-2"></i><span class="sidebar-text">Add Transaction</span></a></li>
+                        <li><a href="/transactions/view" class="block py-2 text-sm text-gray-600 hover:text-indigo-600"><i class="fas fa-eye w-5 h-5 mr-2"></i><span class="sidebar-text">See Transactions</span></a></li>
+                        <li><a href="/reports" class="block py-2 text-sm text-gray-600 hover:text-indigo-600"><i class="fas fa-chart-bar w-5 h-5 mr-2"></i><span class="sidebar-text">Reports</span></a></li>
+                        <li><a href="/calculations" class="block py-2 text-sm text-gray-600 hover:text-indigo-600"><i class="fas fa-calculator w-5 h-5 mr-2"></i><span class="sidebar-text">Calculations</span></a></li>
                     </ul>
                 </li>
                 {% empty %}
-                <li class="px-6 py-3 text-gray-500 text-sm">No firms found.</li>
+                <li class="px-6 py-3 text-gray-500 text-sm sidebar-text">No firms found.</li>
                 {% endfor %}
             </ul>
         </div>
 
         <!-- Main Content -->
-        <div class="content flex-1 p-8 overflow-auto container">
+        <div class="content flex-1 p-8 overflow-auto">
             <!-- Top Stats -->
             <div class="mb-8 flex space-x-6">
-                <div class="bg-white p-6 rounded-xl shadow-md flex-1 hover:shadow-lg transition-shadow">
-                    <h3 class="text-sm font-medium text-gray-600">Uncategorized Transactions</h3>
-                    <p class="text-3xl font-bold text-red-600 mt-2">{{ total_uncategorized }}</p>
+                <div class="uncategorized-widget bg-white p-6 rounded-xl shadow-md flex-1">
+                    <div class="uncategorized-content">
+                        <h3 class="text-sm font-medium text-gray-600">Uncategorized Transactions</h3>
+                        <p class="text-3xl font-bold text-red-600 mt-2">{{ total_uncategorized }}</p>
+                    </div>
+                    <div class="solve-now-btn" onclick="window.location.href='/solve-uncategorized'">Solve Now</div>
                 </div>
-                <div class="bg-white p-6 rounded-xl shadow-md flex-1 hover:shadow-lg transition-shadow">
+                <div class="bg-white p-6 rounded-xl shadow-md flex-1">
                     <h3 class="text-sm font-medium text-gray-600">Potential Duplicates</h3>
                     <p class="text-3xl font-bold text-yellow-600 mt-2">{{ total_duplicates }}</p>
                 </div>
@@ -347,8 +507,8 @@
                         </tr>
                     </thead>
                     <tbody id="transaction-table" class="divide-y divide-gray-100">
-                        {% for transaction in transactions %}
-                        <tr class="table-row">
+                        {% for transaction in page_obj %}
+                        <tr class="table-row" data-transaction-id="{{ transaction.id }}">
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800">{{ transaction.date }}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800">{{ transaction.bank.name }}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800">{{ transaction.firm.name }}</td>
@@ -373,41 +533,131 @@
                         {% endfor %}
                     </tbody>
                 </table>
-                <div class="p-4">
-                    <button id="load-more" class="load-more-btn w-full py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">Load More Transactions</button>
+                <!-- Pagination Controls -->
+                <div class="pagination p-4">
+                    {% if page_obj.has_previous %}
+                        <a href="?page={{ page_obj.previous_page_number }}{% if selected_firm != 'all' %}&firm={{ selected_firm }}{% endif %}">Previous</a>
+                    {% else %}
+                        <span class="text-gray-400">Previous</span>
+                    {% endif %}
+
+                    {% with start=page_obj.number|add:-2 end=page_obj.number|add:2 %}
+                        {% if start < 1 %}
+                            {% with start=1 end=5 %}
+                                {% for num in page_obj.paginator.page_range %}
+                                    {% if num <= end %}
+                                        {% if page_obj.number == num %}
+                                            <span class="current">{{ num }}</span>
+                                        {% else %}
+                                            <a href="?page={{ num }}{% if selected_firm != 'all' %}&firm={{ selected_firm }}{% endif %}">{{ num }}</a>
+                                        {% endif %}
+                                    {% endif %}
+                                {% endfor %}
+                            {% endwith %}
+                        {% elif end > page_obj.paginator.num_pages %}
+                            {% with start=page_obj.paginator.num_pages|add:-4 end=page_obj.paginator.num_pages %}
+                                {% for num in page_obj.paginator.page_range %}
+                                    {% if num >= start %}
+                                        {% if page_obj.number == num %}
+                                            <span class="current">{{ num }}</span>
+                                        {% else %}
+                                            <a href="?page={{ num }}{% if selected_firm != 'all' %}&firm={{ selected_firm }}{% endif %}">{{ num }}</a>
+                                        {% endif %}
+                                    {% endif %}
+                                {% endfor %}
+                            {% endwith %}
+                        {% else %}
+                            {% for num in page_obj.paginator.page_range %}
+                                {% if num >= start and num <= end %}
+                                    {% if page_obj.number == num %}
+                                        <span class="current">{{ num }}</span>
+                                    {% else %}
+                                        <a href="?page={{ num }}{% if selected_firm != 'all' %}&firm={{ selected_firm }}{% endif %}">{{ num }}</a>
+                                    {% endif %}
+                                {% endif %}
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+
+                    {% if page_obj.has_next %}
+                        <a href="?page={{ page_obj.next_page_number }}{% if selected_firm != 'all' %}&firm={{ selected_firm }}{% endif %}">Next</a>
+                    {% else %}
+                        <span class="text-gray-400">Next</span>
+                    {% endif %}
+
+                    <div class="jump-to-page">
+                        <input type="number" id="jump-to-page" min="1" max="{{ page_obj.paginator.num_pages }}" value="{{ page_obj.number }}">
+                        <button onclick="jumpToPage()">Go</button>
+                    </div>
                 </div>
+            </div>
+        </div>
+
+        <!-- Transaction Details Modal -->
+        <div id="transaction-modal" class="modal">
+            <div class="modal-content">
+                <h2>Transaction Details</h2>
+                <div id="transaction-details"></div>
+                <div class="close-btn" onclick="closeModal()">Close</div>
             </div>
         </div>
     </div>
 
     <script>
-        // Initialize Tippy.js for dropdowns
-        tippy('.filter-button', {
-            content(reference) {
-                return reference.getAttribute('data-tippy-content');
-            },
-            trigger: 'click',
-            interactive: true,
-            allowHTML: true,
-            placement: 'bottom-start',
-            onShow(instance) {
-                const dropdown = instance.reference.nextElementSibling;
-                dropdown.classList.remove('hidden');
-                instance.setContent(dropdown);
-            },
-            onHide(instance) {
-                const dropdown = instance.reference.nextElementSibling;
-                dropdown.classList.add('hidden');
-            },
-        });
-
         // Sidebar toggle
         const sidebar = document.querySelector('.sidebar');
         const content = document.querySelector('.content');
         const toggleButton = document.getElementById('toggle-sidebar');
+        let isExpanded = false;
+
         toggleButton.addEventListener('click', () => {
-            sidebar.classList.toggle('open');
-            content.classList.toggle('sidebar-open');
+            sidebar.classList.toggle('expanded');
+            content.classList.toggle('sidebar-expanded');
+            isExpanded = !isExpanded;
+        });
+
+        // Initialize Tippy.js for dropdowns and sidebar tooltips
+        document.addEventListener('DOMContentLoaded', () => {
+            // Dropdown tooltips
+            tippy('.filter-button', {
+                content(reference) {
+                    return reference.getAttribute('data-tippy-content');
+                },
+                trigger: 'click',
+                interactive: true,
+                allowHTML: true,
+                placement: 'bottom-start',
+                onShow(instance) {
+                    const dropdown = instance.reference.nextElementSibling;
+                    dropdown.classList.remove('hidden');
+                    instance.setContent(dropdown);
+                },
+                onHide(instance) {
+                    const dropdown = instance.reference.nextElementSibling;
+                    dropdown.classList.add('hidden');
+                },
+            });
+
+            // Sidebar item tooltips
+            function updateTooltips() {
+                document.querySelectorAll('.sidebar-item > div').forEach(item => {
+                    if (!isExpanded) {
+                        tippy(item, {
+                            content: item.getAttribute('data-tippy-content'),
+                            placement: 'right',
+                            trigger: 'mouseenter focus',
+                            allowHTML: true,
+                        });
+                    } else {
+                        if (item._tippy) {
+                            item._tippy.destroy();
+                        }
+                    }
+                });
+            }
+
+            updateTooltips();
+            toggleButton.addEventListener('click', updateTooltips);
         });
 
         // Sub-menu toggle
@@ -415,9 +665,15 @@
             item.addEventListener('click', (e) => {
                 e.preventDefault();
                 const parent = item.parentElement;
-                parent.classList.toggle('open');
                 const subMenu = item.nextElementSibling;
-                subMenu.classList.toggle('open');
+                const isCollapsed = !subMenu.classList.contains('expanded');
+                if (isCollapsed) {
+                    subMenu.classList.add('expanded');
+                    parent.classList.remove('collapsed');
+                } else {
+                    subMenu.classList.remove('expanded');
+                    parent.classList.add('collapsed');
+                }
                 const firmId = item.getAttribute('data-firm');
                 if (firmId) {
                     const url = new URL(window.location);
@@ -494,53 +750,125 @@
             });
         }
 
-        // Load more transactions
-        let offset = {{ transactions|length }};
-        const limit = 100;
-        const loadMoreButton = document.getElementById('load-more');
-        loadMoreButton.addEventListener('click', async () => {
-            try {
-                const firmId = new URLSearchParams(window.location.search).get('firm') || 'all';
-                const response = await fetch(`/api/transactions?offset=${offset}&limit=${limit}&firm=${firmId}`);
-                const data = await response.json();
-                const tableBody = document.getElementById('transaction-table');
+        // Jump to page functionality
+        function jumpToPage() {
+            const pageInput = document.getElementById('jump-to-page');
+            let page = parseInt(pageInput.value);
+            const maxPage = {{ page_obj.paginator.num_pages }};
+            if (page < 1) page = 1;
+            if (page > maxPage) page = maxPage;
+            const url = new URL(window.location);
+            url.searchParams.set('page', page);
+            {% if selected_firm != 'all' %}
+                url.searchParams.set('firm', '{{ selected_firm }}');
+            {% endif %}
+            window.location.href = url.toString();
+        }
 
-                if (!data.transactions || data.transactions.length === 0) {
-                    loadMoreButton.disabled = true;
-                    loadMoreButton.textContent = 'No More Transactions';
-                    return;
-                }
+        // Transaction row click to show details
+        document.querySelectorAll('.table-row').forEach(row => {
+            row.addEventListener('click', () => {
+                const transactionId = row.getAttribute('data-transaction-id');
+                const transaction = {
+                    id: transactionId,
+                    date: row.cells[0].textContent,
+                    bank: row.cells[1].textContent,
+                    firm: row.cells[2].textContent,
+                    partner: row.cells[3].textContent,
+                    debit: row.cells[4].textContent,
+                    credit: row.cells[5].textContent,
+                    currency: row.cells[6].textContent,
+                    details: row.cells[7].textContent,
+                    subcategory: row.cells[8].textContent,
+                    duplicate: row.cells[9].textContent,
+                    notes: 'N/A',
+                    transaction_type: 'N/A',
+                    amount_type: row.cells[4].textContent !== '0.00' ? 'Debit' : 'Credit',
+                    verified: 'N/A',
+                    created_at: 'N/A',
+                    created_by: 'N/A',
+                };
 
-                data.transactions.forEach(tx => {
-                    const row = document.createElement('tr');
-                    row.className = 'table-row';
-                    row.innerHTML = `
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800">${tx.date}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800">${tx.bank.name}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800">${tx.firm.name}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800">${tx.partner ? tx.partner.name : 'N/A'}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800">${tx.debit}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800">${tx.credit}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800">${tx.currency}</td>
-                        <td class="px-6 py-4 text-sm text-gray-800">${tx.details.substring(0, 50)}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-800">${tx.subcategory.name}</td>
-                        <td class="px-6 py-4 whitespace-nowrap text-sm">
-                            ${tx.suspension_of_duplication ? '<span class="text-yellow-600 font-semibold">Yes</span>' : '<span class="text-gray-600">No</span>'}
-                        </td>
-                    `;
-                    tableBody.appendChild(row);
-                });
+                const detailsDiv = document.getElementById('transaction-details');
+                detailsDiv.innerHTML = `
+                    <div class="detail-row">
+                        <span class="detail-label">ID</span>
+                        <span class="detail-value">${transaction.id}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Date</span>
+                        <span class="detail-value">${transaction.date}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Bank</span>
+                        <span class="detail-value">${transaction.bank}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Firm</span>
+                        <span class="detail-value">${transaction.firm}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Partner</span>
+                        <span class="detail-value">${transaction.partner}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Debit</span>
+                        <span class="detail-value">${transaction.debit}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Credit</span>
+                        <span class="detail-value">${transaction.credit}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Currency</span>
+                        <span class="detail-value">${transaction.currency}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Details</span>
+                        <span class="detail-value">${transaction.details}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Subcategory</span>
+                        <span class="detail-value">${transaction.subcategory}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Duplicate</span>
+                        <span class="detail-value">${transaction.duplicate}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Notes</span>
+                        <span class="detail-value">${transaction.notes}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Transaction Type</span>
+                        <span class="detail-value">${transaction.transaction_type}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Amount Type</span>
+                        <span class="detail-value">${transaction.amount_type}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Verified</span>
+                        <span class="detail-value">${transaction.verified}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Created At</span>
+                        <span class="detail-value">${transaction.created_at}</span>
+                    </div>
+                    <div class="detail-row">
+                        <span class="detail-label">Created By</span>
+                        <span class="detail-value">${transaction.created_by}</span>
+                    </div>
+                `;
 
-                offset += data.transactions.length;
-                if (data.transactions.length < limit) {
-                    loadMoreButton.disabled = true;
-                    loadMoreButton.textContent = 'No More Transactions';
-                }
-            } catch (error) {
-                console.error('Error loading transactions:', error);
-                loadMoreButton.textContent = 'Error Loading Transactions';
-            }
+                document.getElementById('transaction-modal').style.display = 'flex';
+            });
         });
+
+        // Close modal
+        function closeModal() {
+            document.getElementById('transaction-modal').style.display = 'none';
+        }
     </script>
 </body>
 </html>
